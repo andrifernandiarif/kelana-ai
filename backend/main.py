@@ -31,12 +31,11 @@ def print_trip_summary(
     print(f"Style           : {travel_style.capitalize()}")
     print(f"Hotel Cost      : {hotel_cost} {currency.upper()}")
     print(f"Food Cost       : {food_cost} {currency.upper()}")
-    print(f"Transport       : {transportation_cost} {currency.upper()}")
+    print(f"Transport Cost  : {transportation_cost} {currency.upper()}")
     print(f"Misc Cost       : {miscellaneous_cost} {currency.upper()}")
     print(f"Total           : {total_estimated_cost} {currency.upper()}")
 
     if total_estimated_cost > budget:
-        #print("⚠ Budget exceeded.")
         print("\033[93m ⚠ Budget exceeded.\033[0m")
 
     print()
