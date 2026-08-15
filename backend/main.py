@@ -39,18 +39,7 @@ def print_destinations(destinations):
 
     return destinations_text
 
-def print_recommended_places(destinations):
-    print("Recommended Places")
     print()
-
-    for destination in destinations:
-        print(destination)
-        places = get_recommended_places(destination)
-
-        for place in places:
-            print(f"- {place}")
-        
-        print()
 
 def print_trip_summary(
     destinations, days, budget, currency, month,
