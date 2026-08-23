@@ -4,15 +4,18 @@ from services.trip_service import (
     calculate_daily_budget,
     get_trip_category,
     get_transportation_recommendation,
+    get_travel_season,
 )
-
+from services.bedrock_service import get_ai_recommendation
 from database import SessionLocal, init_db
 from models.trip import Trip
+
 
 class TripRequest(BaseModel):
     destination:    str
     days:           int
     budget:         float
+    month:          str
     travel_style:   str
 
 class TripUpdate(BaseModel):
@@ -85,14 +88,29 @@ def create_trip(request: TripRequest):
     category = get_trip_category(
         request.budget
     )
+    travel_season = get_travel_season(
+        request.month
+    )
+    ai_recommendation = get_ai_recommendation(
+        destination=request.destination,
+        days=request.days,
+        budget=request.budget,
+        month=request.month,
+        travel_style=request.travel_style,
+        travel_season=travel_season,
+    )
     
     # create a Trip ORM object
     trip = Trip(
-        destination = request.destination,
-        days        = request.days,
-        budget      = request.budget,
-        category    = category,
-        daily_budget= daily_budget,
+        destination         = request.destination,
+        days                = request.days,
+        month               = request.month,
+        travel_season       = travel_season,
+        budget              = request.budget,
+        daily_budget        = daily_budget,
+        travel_style        = request.travel_style,
+        category            = category,        
+        ai_recommendation   = ai_recommendation,
     )
 
     # save to PostgreSQL
@@ -102,6 +120,56 @@ def create_trip(request: TripRequest):
     db.refresh(trip) # get the auto generated id
     db.close()
     return trip
+
+# POST endpoint — receives JSON, returns JSON
+@app.post("/api/v1/trips/{id}/generate")
+def generate_trip_recommendatian(id: int):
+
+    db = SessionLocal()
+
+    trip = db.query(Trip).filter(Trip.id == id).first()
+
+    if trip is None:
+        db.close()
+
+        raise HTTPException(
+            status_code=404,
+            detail=f"Trip with id {id} not found"
+    )
+
+    try:
+
+        recommendation = get_ai_recommendation(
+            destination=trip.destination,
+            days=trip.days,
+            budget=trip.budget,
+            month=trip.month,
+            travel_style=trip.travel_style,
+            travel_season=trip.travel_season,
+        )
+
+        trip.ai_recommendation = recommendation
+
+        db.commit()
+        db.refresh(trip)
+
+        return {
+            "id": trip.id,
+            "destination": trip.destination,
+            "ai_recommendation": trip.ai_recommendation
+        }
+        
+    except Exception as e:
+
+        db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate AI recommendation: {str(e)}"
+        )
+
+    finally:
+        db.close()
 
 
 # PUT endpoint
