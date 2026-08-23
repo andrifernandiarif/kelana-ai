@@ -49,19 +49,37 @@ def get_ai_recommendation(
     """
     model_id = os.getenv("MODEL_ID", "amazon.nova-lite-v1:0")
 
+
     prompt = (
-        f"You are an experienced travel planner.\n "
-        f"Plan a {days}-day itinerary for {destination}.\n "
-        f"Budget: USD{budget}.\n "
-        f"Travel Style: {travel_style}.\n"
-        f"Month: {month}.\n"
-        f"Travel Season: {travel_season}.\n"
+    f"You are an experienced travel planner.\n"
+    f"Plan a detailed {days}-day itinerary for {destination}.\n"
+    f"Budget: USD {budget}.\n"
+    f"Travel Style: {travel_style}.\n\n"
 
-        f"Consider the travel season when creating the itinerary.\n"
-        f"Provide Transportation recommendation.\n"
-        f"Provide local food recommendation.\n"
+    f"For each day, create a structured daily plan with the following sections:\n\n"
 
-        f"Format your response as Markdown with headers (##) and bullet lists (-)."
+    f"## Morning Activities\n"
+    f"- Provide 2-3 specific morning activities.\n"
+    f"- Include the name of the place and a short description.\n\n"
+
+    f"## Afternoon Activities\n"
+    f"- Recommend cultural sites, historical landmarks, museums, "
+    f"traditional markets, and authentic local experiences.\n"
+    f"- Prioritize places that are close to each other to make the itinerary realistic.\n\n"
+
+    f"## Evening Activities\n"
+    f"- Recommend suitable dinner spots and local food to try.\n"
+    f"- Recommend nightlife or evening entertainment.\n\n"
+
+    f"## Transportation\n"
+    f"- Recommend suitable transportation options for the itinerary.\n"
+    f"- Consider the traveler's budget and travel style.\n\n"
+
+    f"## Estimated Costs\n"
+    f"- Estimate transportation, food, entrance fees, and other relevant costs.\n"
+    f"- The Total Estimated Cost MUST NOT exceed USD {budget:.0f}.\n\n"
+
+    f"Format your response as Markdown with headers (##) and bullet lists (-)."
     )
 
 
