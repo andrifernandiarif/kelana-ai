@@ -9,6 +9,7 @@ from services.trip_service import (
 from services.bedrock_service import get_ai_recommendation
 from database import SessionLocal, init_db
 from models.trip import Trip
+from fastapi.middleware.cors import CORSMiddleware
 
 
 class TripRequest(BaseModel):
@@ -26,6 +27,17 @@ class TripUpdate(BaseModel):
 
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 init_db()
 

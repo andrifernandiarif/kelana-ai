@@ -50,37 +50,60 @@ def get_ai_recommendation(
     model_id = os.getenv("MODEL_ID", "amazon.nova-lite-v1:0")
 
 
-    prompt = (
-    f"You are an experienced travel planner.\n"
-    f"Plan a detailed {days}-day itinerary for {destination}.\n"
-    f"Budget: USD {budget}.\n"
-    f"Travel Style: {travel_style}.\n\n"
+    prompt = f"""
+    You are an experienced travel planner.
 
-    f"For each day, create a structured daily plan with the following sections:\n\n"
+    Create a personalized {days}-day itinerary for:
 
-    f"## Morning Activities\n"
-    f"- Provide 2-3 specific morning activities.\n"
-    f"- Include the name of the place and a short description.\n\n"
+    Destination: {destination}
+    Budget: USD {budget}
+    Travel Style: {travel_style}
+    Month: {month}
+    Travel Season: {travel_season}
 
-    f"## Afternoon Activities\n"
-    f"- Recommend cultural sites, historical landmarks, museums, "
-    f"traditional markets, and authentic local experiences.\n"
-    f"- Prioritize places that are close to each other to make the itinerary realistic.\n\n"
+    Return ONLY valid JSON.
 
-    f"## Evening Activities\n"
-    f"- Recommend suitable dinner spots and local food to try.\n"
-    f"- Recommend nightlife or evening entertainment.\n\n"
+    Use exactly this structure:
 
-    f"## Transportation\n"
-    f"- Recommend suitable transportation options for the itinerary.\n"
-    f"- Consider the traveler's budget and travel style.\n\n"
+    {{
+    "daily_itinerary": [
+        {{
+        "day": 1,
+        "title": "Day title",
+        "morning": [],
+        "afternoon": [],
+        "evening": [],
+        "transportation": "",
+        "local_food": []
+        }}
+    ],
 
-    f"## Estimated Costs\n"
-    f"- Estimate transportation, food, entrance fees, and other relevant costs.\n"
-    f"- The Total Estimated Cost MUST NOT exceed USD {budget:.0f}.\n\n"
+    "travel_tips": [],
 
-    f"Format your response as Markdown with headers (##) and bullet lists (-)."
-    )
+    "local_food_recommendations": [
+        {{
+        "name": "",
+        "description": ""
+        }}
+    ],
+
+    "budget_breakdown": {{
+        "accommodation": 0,
+        "transportation": 0,
+        "food": 0,
+        "activities": 0,
+        "miscellaneous": 0
+    }}
+    }}
+
+    IMPORTANT:
+    - Return ONLY JSON.
+    - Do not use Markdown.
+    - Do not add explanations outside JSON.
+    - Create exactly {days} itinerary days.
+    - Keep the estimated costs within the user's budget.
+    - Recommend transportation appropriate for the budget and travel style.
+    """
 
 
     # Amazon Nova uses the Converse API
