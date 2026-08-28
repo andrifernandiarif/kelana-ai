@@ -16,5 +16,4 @@ class Trip(Base):
     category                = Column(String,    nullable=False)
     daily_budget            = Column(Float,     nullable=False)
     ai_recommendation       = Column(Text,      nullable=True)
-
     create_at               = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

@@ -78,7 +78,6 @@ def get_ai_recommendation(
         f"- Estimate transportation, food, entrance fees, and other relevant costs.\n"
         f"- The Total Estimated Cost MUST NOT exceed USD {budget:.0f}.\n\n"
 
-        # f"Format your response as Markdown with headers (##) and bullet lists (-)."
         f"Give the answer with markdown format."
     )
 

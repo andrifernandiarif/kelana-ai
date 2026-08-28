@@ -13,6 +13,8 @@ from services.bedrock_service import get_ai_recommendation
 from database import SessionLocal, init_db
 from models.trip import Trip
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+import os
 
 
 class TripRequest(BaseModel):
@@ -34,8 +36,7 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
+        os.getenv("FRONTEND_URL", "http://localhost:3000")
     ],
     allow_credentials=True,
     allow_methods=["*"],
