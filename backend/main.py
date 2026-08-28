@@ -1,12 +1,15 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+
 from services.trip_service import (
     calculate_daily_budget,
     get_trip_category,
     get_transportation_recommendation,
     get_travel_season,
 )
+
 from services.bedrock_service import get_ai_recommendation
+
 from database import SessionLocal, init_db
 from models.trip import Trip
 from fastapi.middleware.cors import CORSMiddleware

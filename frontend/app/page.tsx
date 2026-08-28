@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
 
 interface TripResult {
   destination: string;
@@ -8,50 +9,44 @@ interface TripResult {
   budget: number;
   month: string;
   travel_style: string;
-  daily_budget?: number;
   category?: string;
+  daily_budget?: number;
   travel_season?: string;
   ai_recommendation?: string;
 }
 
-interface DailyItinerary {
-  day: number;
-  title: string;
-  morning: string[];
-  afternoon: string[];
-  evening: string[];
-  transportation: string;
-  local_food: string[];
-}
-
-interface FoodRecommendation {
-  name: string;
-  description: string;
-}
-
-interface BudgetBreakdown {
-  accommodation: number;
-  transportation: number;
-  food: number;
-  activities: number;
-  miscellaneous: number;
-}
-
-interface TripResult {
-  destination: string;
-  days: number;
-  budget: number;
-  month: string;
-  travel_style: string;
-  daily_budget?: number;
-  category?: string;
-  travel_season?: string;
-
-  daily_itinerary?: DailyItinerary[];
-  travel_tips?: string[];
-  local_food_recommendations?: FoodRecommendation[];
-  budget_breakdown?: BudgetBreakdown;
-}
+const loadingStages = [
+  {
+    icon: "🧭",
+    title: "Understanding your trip",
+    description:
+      "Analyzing your destination, budget, and travel preferences.",
+  },
+  {
+    icon: "🗺️",
+    title: "Planning your itinerary",
+    description:
+      "Finding places and activities that match your travel style.",
+  },
+  {
+    icon: "💰",
+    title: "Optimizing your budget",
+    description:
+      "Creating a travel plan that fits your available budget.",
+  },
+  {
+    icon: "🍜",
+    title: "Adding local experiences",
+    description:
+      "Selecting local food and transportation recommendations.",
+  },
+  {
+    icon: "✨",
+    title: "Finalizing your trip",
+    description:
+      "Putting everything together into your personalized itinerary.",
+  },
+];
 
 export default function Home() {
   const [destination, setDestination] = useState("");
@@ -60,49 +55,23 @@ export default function Home() {
   const [month, setMonth] = useState("");
   const [travelStyle, setTravelStyle] = useState("");
 
-  const [result, setResult] = useState<TripResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState(0);
+
+  const [result, setResult] = useState<TripResult | null>(null);
+
   const [error, setError] = useState("");
 
-  const loadingStages = [
-    {
-      title: "Understanding your trip",
-      description: "Analyzing your destination, budget, and travel style...",
-      icon: "🧭",
-    },
-    {
-      title: "Planning your itinerary",
-      description: "Finding activities and places that match your preferences...",
-      icon: "🗺️",
-    },
-    {
-      title: "Optimizing your budget",
-      description: "Creating a trip plan that fits your budget...",
-      icon: "💰",
-    },
-    {
-      title: "Adding local experiences",
-      description: "Selecting food, transportation, and local experiences...",
-      icon: "🍜",
-    },
-    {
-      title: "Your trip is almost ready",
-      description: "Putting everything together into your personalized itinerary...",
-      icon: "✨",
-    },
-  ];
+  /*
+   * ==========================================
+   * LOADING STAGE
+   * ==========================================
+   */
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (!loading) return;
 
-    setLoading(true);
-    setLoadingStage(0);
-    setError("");
-    setResult(null);
-
-    // Loading animation
-    const stageInterval = setInterval(() => {
+    const interval = setInterval(() => {
       setLoadingStage((current) => {
         if (current < loadingStages.length - 1) {
           return current + 1;
@@ -111,6 +80,23 @@ export default function Home() {
         return current;
       });
     }, 1800);
+
+    return () => clearInterval(interval);
+  }, [loading]);
+
+  /*
+   * ==========================================
+   * GENERATE TRIP
+   * ==========================================
+   */
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    setLoading(true);
+    setLoadingStage(0);
+    setError("");
+    setResult(null);
 
     try {
       const response = await fetch(
@@ -121,10 +107,10 @@ export default function Home() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            destination,
-            days: Number(days),
+            destination: destination,
             budget: Number(budget),
-            month,
+            days: Number(days),
+            month: month,
             travel_style: travelStyle,
           }),
         }
@@ -136,674 +122,1181 @@ export default function Home() {
         console.error("Backend error:", errorData);
 
         throw new Error(
-          errorData.detail
-            ? JSON.stringify(errorData.detail)
-            : "Failed to generate trip"
+          errorData.detail || "Failed to generate trip"
         );
       }
 
       const data = await response.json();
 
+      console.log("AI Trip Result:", data);
+
       setResult(data);
     } catch (error) {
       console.error(error);
+
       setError(
-        "We couldn't generate your trip. Please check your backend connection and try again."
+        "Failed to generate your trip. Please make sure the FastAPI backend is running."
       );
     } finally {
-      clearInterval(stageInterval);
       setLoading(false);
     }
   };
 
-  const handleCreateNewTrip = () => {
+  /*
+   * ==========================================
+   * CREATE NEW TRIP
+   * ==========================================
+   */
+
+  const createNewTrip = () => {
     setResult(null);
     setError("");
+
     setDestination("");
     setBudget("");
     setDays("");
     setMonth("");
     setTravelStyle("");
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   };
 
   /*
-   * ============================
+   * ==========================================
    * LOADING PAGE
-   * ============================
+   * ==========================================
    */
 
   if (loading) {
-    const currentStage = loadingStages[loadingStage];
+    const stage = loadingStages[loadingStage];
+
+    const progress =
+      ((loadingStage + 1) / loadingStages.length) * 100;
 
     return (
-      <main className="min-h-screen bg-slate-950 text-white">
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 px-5 text-white">
+
+        {/* Background */}
+
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-blue-600/20 blur-3xl" />
-          <div className="absolute -bottom-20 -right-20 h-72 w-72 rounded-full bg-purple-600/20 blur-3xl" />
+
+          <div className="absolute left-[-100px] top-[-100px] h-80 w-80 rounded-full bg-blue-600/20 blur-3xl" />
+
+          <div className="absolute bottom-[-100px] right-[-100px] h-80 w-80 rounded-full bg-purple-600/20 blur-3xl" />
+
         </div>
 
-        <div className="relative flex min-h-screen items-center justify-center px-4">
-          <div className="w-full max-w-xl text-center">
+        <div className="relative w-full max-w-xl">
 
-            {/* Logo */}
-            <div className="mb-8">
-              <div className="mb-3 text-4xl">✈️</div>
+          {/* Logo */}
 
-              <h1 className="text-3xl font-bold">
-                <span className="bg-gradient-to-r from-blue-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent">
-                  Kelana AI
-                </span>
-              </h1>
+          <div className="mb-8 text-center">
 
-              <p className="mt-2 text-sm text-slate-500">
-                Smart Plan - Epic Trips
-              </p>
+            <div className="mb-3 text-4xl">
+              ✈️
             </div>
 
-            {/* Loading Card */}
-            <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-8 shadow-2xl backdrop-blur-xl">
+            <h1 className="text-3xl font-bold">
+              Kelana
+              <span className="text-blue-400">
+                AI
+              </span>
+            </h1>
 
-              {/* Animated Icon */}
-              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 text-4xl ring-1 ring-white/10">
-                <span className="animate-pulse">
-                  {currentStage.icon}
-                </span>
-              </div>
+            <p className="mt-2 text-sm text-slate-500">
+              Smart Plan - Epic Trips
+            </p>
 
-              <p className="mb-2 text-sm font-medium text-blue-400">
-                Creating your perfect trip
-              </p>
-
-              <h2 className="text-2xl font-bold">
-                {currentStage.title}
-              </h2>
-
-              <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-slate-400">
-                {currentStage.description}
-              </p>
-
-              {/* Progress */}
-              <div className="mt-8">
-                <div className="mb-3 flex justify-between text-xs text-slate-500">
-                  <span>
-                    Step {loadingStage + 1} of {loadingStages.length}
-                  </span>
-
-                  <span>
-                    {Math.round(
-                      ((loadingStage + 1) / loadingStages.length) * 100
-                    )}
-                    %
-                  </span>
-                </div>
-
-                <div className="h-2 overflow-hidden rounded-full bg-slate-800">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-700"
-                    style={{
-                      width: `${
-                        ((loadingStage + 1) /
-                          loadingStages.length) *
-                        100
-                      }%`,
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Trip Summary */}
-              <div className="mt-8 grid grid-cols-3 gap-3">
-
-                <div className="rounded-xl border border-white/5 bg-white/[0.03] p-3">
-                  <p className="text-xs text-slate-500">
-                    Destination
-                  </p>
-
-                  <p className="mt-1 truncate text-sm font-medium">
-                    {destination}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-white/5 bg-white/[0.03] p-3">
-                  <p className="text-xs text-slate-500">
-                    Days
-                  </p>
-
-                  <p className="mt-1 text-sm font-medium">
-                    {days}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-white/5 bg-white/[0.03] p-3">
-                  <p className="text-xs text-slate-500">
-                    Style
-                  </p>
-
-                  <p className="mt-1 truncate text-sm font-medium">
-                    {travelStyle}
-                  </p>
-                </div>
-
-              </div>
-
-              <p className="mt-6 text-xs text-slate-600">
-                ✨ AI is crafting your journey...
-              </p>
-            </div>
           </div>
+
+          {/* Loading Card */}
+
+          <div className="rounded-3xl border border-white/10 bg-white/[0.05] p-7 text-center shadow-2xl backdrop-blur-xl sm:p-10">
+
+            {/* Icon */}
+
+            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl border border-white/10 bg-white/[0.05] text-5xl shadow-lg">
+
+              <span className="animate-pulse">
+                {stage.icon}
+              </span>
+
+            </div>
+
+            <p className="mt-7 text-sm font-semibold text-blue-400">
+              CREATING YOUR TRIP
+            </p>
+
+            <h2 className="mt-2 text-2xl font-bold">
+              {stage.title}
+            </h2>
+
+            <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-slate-500">
+              {stage.description}
+            </p>
+
+            {/* Progress */}
+
+            <div className="mt-8">
+
+              <div className="mb-3 flex justify-between text-xs text-slate-500">
+
+                <span>
+                  Step {loadingStage + 1} of{" "}
+                  {loadingStages.length}
+                </span>
+
+                <span>
+                  {Math.round(progress)}%
+                </span>
+
+              </div>
+
+              <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-700"
+                  style={{
+                    width: `${progress}%`,
+                  }}
+                />
+
+              </div>
+
+            </div>
+
+            {/* Trip Info */}
+
+            <div className="mt-8 grid grid-cols-3 gap-3">
+
+              <div className="rounded-xl border border-white/5 bg-white/[0.03] p-3">
+
+                <p className="text-xs text-slate-600">
+                  Destination
+                </p>
+
+                <p className="mt-1 truncate text-sm font-medium">
+                  {destination}
+                </p>
+
+              </div>
+
+              <div className="rounded-xl border border-white/5 bg-white/[0.03] p-3">
+
+                <p className="text-xs text-slate-600">
+                  Duration
+                </p>
+
+                <p className="mt-1 text-sm font-medium">
+                  {days} days
+                </p>
+
+              </div>
+
+              <div className="rounded-xl border border-white/5 bg-white/[0.03] p-3">
+
+                <p className="text-xs text-slate-600">
+                  Style
+                </p>
+
+                <p className="mt-1 truncate text-sm font-medium">
+                  {travelStyle}
+                </p>
+
+              </div>
+
+            </div>
+
+            <p className="mt-7 text-xs text-slate-600">
+              ✨ Kelana AI is crafting your journey...
+            </p>
+
+          </div>
+
         </div>
+
       </main>
     );
   }
 
   /*
-   * ============================
+   * ==========================================
    * RESULT PAGE
-   * ============================
+   * ==========================================
    */
 
   if (result) {
     return (
       <main className="min-h-screen bg-slate-950 text-white">
 
-        {/* Background */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-blue-600/10 blur-3xl" />
-          <div className="absolute -bottom-20 -right-20 h-72 w-72 rounded-full bg-purple-600/10 blur-3xl" />
-        </div>
+        {/* Header */}
 
-        <div className="relative mx-auto max-w-5xl px-4 py-10 sm:px-6">
+        <nav className="border-b border-white/10 bg-slate-950">
 
-          {/* Header */}
-          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
 
-            <div>
-              <p className="text-sm text-blue-400">
-                ✨ Your AI Trip
-              </p>
+            <div className="flex items-center gap-2">
 
-              <h1 className="mt-1 text-3xl font-bold sm:text-4xl">
-                {result.destination}
-              </h1>
+              <span className="text-2xl">
+                ✈️
+              </span>
 
-              <p className="mt-2 text-sm text-slate-500">
-                Your personalized journey is ready.
-              </p>
+              <span className="text-xl font-bold">
+                Kelana
+                <span className="text-blue-400">
+                  AI
+                </span>
+              </span>
+
             </div>
 
             <button
-              onClick={handleCreateNewTrip}
-              className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium text-slate-300 transition hover:bg-white/10"
+              onClick={createNewTrip}
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/10"
             >
-              ← Create New Trip
+              ← New Trip
             </button>
-          </div>
-
-          {/* Trip Overview */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-
-            <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-5 backdrop-blur">
-              <p className="text-xs text-slate-500">
-                Duration
-              </p>
-
-              <p className="mt-2 text-xl font-bold">
-                {result.days} days
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-5 backdrop-blur">
-              <p className="text-xs text-slate-500">
-                Budget
-              </p>
-
-              <p className="mt-2 text-xl font-bold">
-                ${result.budget}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-5 backdrop-blur">
-              <p className="text-xs text-slate-500">
-                Travel Style
-              </p>
-
-              <p className="mt-2 text-xl font-bold">
-                {result.travel_style}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-5 backdrop-blur">
-              <p className="text-xs text-slate-500">
-                Travel Month
-              </p>
-
-              <p className="mt-2 text-xl font-bold">
-                {result.month}
-              </p>
-            </div>
 
           </div>
+
+        </nav>
+
+        <div className="mx-auto max-w-6xl px-5 py-10 sm:py-14">
+
+          {/* Result Hero */}
+
+          <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-blue-600/20 via-slate-900 to-purple-600/20 p-7 sm:p-10">
+
+            <div className="relative z-10">
+
+              <p className="text-sm font-semibold text-blue-400">
+                ✨ YOUR AI TRIP IS READY
+              </p>
+
+              <h1 className="mt-3 text-4xl font-bold sm:text-5xl">
+                {result.destination}
+              </h1>
+
+              <p className="mt-3 max-w-xl text-sm leading-6 text-slate-400">
+                Your personalized travel plan has been created
+                based on your budget, travel style, and travel
+                month.
+              </p>
+
+            </div>
+
+          </section>
+
+          {/* Trip Summary */}
+
+          <section className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+
+            <SummaryCard
+              label="Duration"
+              value={`${result.days} Days`}
+              icon="📅"
+            />
+
+            <SummaryCard
+              label="Budget"
+              value={`$${result.budget}`}
+              icon="💰"
+            />
+
+            <SummaryCard
+              label="Travel Month"
+              value={result.month}
+              icon="🗓️"
+            />
+
+            <SummaryCard
+              label="Travel Style"
+              value={result.travel_style}
+              icon="🎒"
+            />
+
+          </section>
 
           {/* Category / Season */}
+
           {(result.category || result.travel_season) && (
-            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <section className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
 
               {result.category && (
-                <div className="rounded-2xl border border-blue-500/10 bg-blue-500/5 p-5">
+                <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-5">
+
                   <p className="text-xs text-blue-400">
-                    Trip Category
+                    TRIP CATEGORY
                   </p>
 
-                  <p className="mt-2 text-lg font-semibold">
+                  <p className="mt-2 font-semibold">
                     {result.category}
                   </p>
+
                 </div>
               )}
 
               {result.travel_season && (
-                <div className="rounded-2xl border border-purple-500/10 bg-purple-500/5 p-5">
+                <div className="rounded-2xl border border-purple-500/20 bg-purple-500/5 p-5">
+
                   <p className="text-xs text-purple-400">
-                    Travel Season
+                    TRAVEL SEASON
                   </p>
 
-                  <p className="mt-2 text-lg font-semibold">
+                  <p className="mt-2 font-semibold">
                     {result.travel_season}
                   </p>
+
                 </div>
               )}
 
-            </div>
-          )}
-
-          {/* Daily Budget */}
-          {result.daily_budget && (
-            <div className="mt-8 rounded-3xl border border-white/10 bg-gradient-to-r from-blue-500/10 to-purple-500/10 p-6">
-
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-
-                <div>
-                  <p className="text-sm text-slate-400">
-                    Recommended Daily Budget
-                  </p>
-
-                  <p className="mt-1 text-3xl font-bold">
-                    ${result.daily_budget.toFixed(2)}
-                  </p>
-                </div>
-
-                <div className="text-4xl">
-                  💰
-                </div>
-
-              </div>
-
-            </div>
+            </section>
           )}
 
           {/* AI Recommendation */}
-          {result.ai_recommendation && (
-            <div className="mt-8">
 
-              <div className="mb-4">
-                <p className="text-sm font-medium text-blue-400">
-                  AI Recommendation
+          {result.ai_recommendation && (
+            <section className="mt-12">
+
+              <div className="mb-6">
+
+                <p className="text-sm font-semibold text-blue-400">
+                  🗓️ ITINERARY
                 </p>
 
-                <h2 className="mt-1 text-2xl font-bold">
-                  Your Personalized Itinerary
+                <h2 className="mt-1 text-3xl font-bold">
+                  Your Daily Adventure
                 </h2>
+
+                <p className="mt-2 text-sm text-slate-500">
+                  A personalized itinerary generated by Kelana AI.
+                </p>
+
               </div>
 
-              <div className="rounded-3xl border border-white/10 bg-white/[0.05] p-6 shadow-xl backdrop-blur-xl sm:p-8">
+              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8">
 
-                <div className="prose prose-invert max-w-none whitespace-pre-wrap text-sm leading-7 text-slate-300">
-                  {result.ai_recommendation}
+                <div className="text-sm leading-7 text-slate-300">
+                  <ReactMarkdown>
+                    {result.ai_recommendation}
+                  </ReactMarkdown>
+                  
                 </div>
 
               </div>
-            </div>
+
+            </section>
           )}
 
-          {result.daily_itinerary?.map((day) => (
-            <div
-              key={day.day}
-              className="rounded-3xl border border-white/10 bg-white/[0.05] p-6"
-            >
-              <div className="mb-6">
-                <p className="text-sm font-medium text-blue-400">
-                  DAY {day.day}
-                </p>
+          {/* Daily Itinerary Note */}
 
-                <h3 className="mt-1 text-2xl font-bold text-white">
-                  {day.title}
-                </h3>
-              </div>
+          <section className="mt-12">
 
-              <div className="grid gap-5 sm:grid-cols-3">
+            <div className="mb-5">
 
-                <div>
-                  <h4 className="mb-3 font-semibold">
-                    🌅 Morning
-                  </h4>
+              <p className="text-sm font-semibold text-blue-400">
+                💡 TRAVEL TIPS
+              </p>
 
-                  <ul className="space-y-2 text-sm text-slate-400">
-                    {day.morning.map((item, index) => (
-                      <li key={index}>
-                        • {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+              <h2 className="mt-1 text-3xl font-bold">
+                Make Your Trip Better
+              </h2>
 
-                <div>
-                  <h4 className="mb-3 font-semibold">
-                    ☀️ Afternoon
-                  </h4>
-
-                  <ul className="space-y-2 text-sm text-slate-400">
-                    {day.afternoon.map((item, index) => (
-                      <li key={index}>
-                        • {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div>
-                  <h4 className="mb-3 font-semibold">
-                    🌙 Evening
-                  </h4>
-
-                  <ul className="space-y-2 text-sm text-slate-400">
-                    {day.evening.map((item, index) => (
-                      <li key={index}>
-                        • {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-              </div>
-
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-
-                <div className="rounded-xl bg-white/[0.04] p-4">
-                  <p className="text-xs text-slate-500">
-                    🚗 Transportation
-                  </p>
-
-                  <p className="mt-1 text-sm text-slate-300">
-                    {day.transportation}
-                  </p>
-                </div>
-
-                <div className="rounded-xl bg-white/[0.04] p-4">
-                  <p className="text-xs text-slate-500">
-                    🍜 Local Food
-                  </p>
-
-                  <p className="mt-1 text-sm text-slate-300">
-                    {day.local_food.join(", ")}
-                  </p>
-                </div>
-
-              </div>
             </div>
-          ))}
 
-          {/* If AI recommendation doesn't exist */}
-          {!result.ai_recommendation && (
-            <div className="mt-8 rounded-3xl border border-white/10 bg-white/[0.05] p-8 text-center">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 
-              <div className="text-4xl">
-                🗺️
-              </div>
+              <TipCard
+                icon="🎒"
+                title="Pack Smart"
+                description="Bring comfortable clothes and essentials suitable for your destination."
+              />
 
-              <h2 className="mt-4 text-xl font-bold">
-                Trip Generated Successfully
+              <TipCard
+                icon="💳"
+                title="Carry Some Cash"
+                description="Keep some local currency available for small shops and local transportation."
+              />
+
+              <TipCard
+                icon="📱"
+                title="Stay Connected"
+                description="Consider getting a local SIM or reliable travel connectivity."
+              />
+
+              <TipCard
+                icon="🌦️"
+                title="Check the Weather"
+                description="Check the local weather before starting your daily activities."
+              />
+
+              <TipCard
+                icon="⏰"
+                title="Start Early"
+                description="Starting early can help you avoid crowds and make better use of your day."
+              />
+
+              <TipCard
+                icon="🗺️"
+                title="Stay Flexible"
+                description="Leave some room in your schedule for unexpected discoveries."
+              />
+
+            </div>
+
+          </section>
+
+          {/* Local Food */}
+
+          <section className="mt-12">
+
+            <div className="mb-5">
+
+              <p className="text-sm font-semibold text-orange-400">
+                🍜 LOCAL FOOD
+              </p>
+
+              <h2 className="mt-1 text-3xl font-bold">
+                Taste the Destination
               </h2>
 
               <p className="mt-2 text-sm text-slate-500">
-                Your trip information has been successfully created.
+                Don't forget to experience the local cuisine.
               </p>
 
             </div>
-          )}
 
-          {/* Footer */}
-          <div className="mt-10 pb-6 text-center text-xs text-slate-600">
-            ✨ Kelana AI — Smart Plan - Epic Trips
-          </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
+              <FoodCard
+                icon="🍜"
+                name="Local Specialties"
+                description={`Explore authentic local dishes in ${result.destination}.`}
+              />
+
+              <FoodCard
+                icon="🍛"
+                name="Traditional Cuisine"
+                description="Try traditional dishes recommended by locals."
+              />
+
+              <FoodCard
+                icon="🥘"
+                name="Street Food"
+                description="Discover affordable and popular street food around your destination."
+              />
+
+            </div>
+
+          </section>
+
+          {/* Budget Breakdown */}
+
+          <section className="mt-12">
+
+            <div className="mb-5">
+
+              <p className="text-sm font-semibold text-emerald-400">
+                💰 BUDGET
+              </p>
+
+              <h2 className="mt-1 text-3xl font-bold">
+                Estimated Budget Breakdown
+              </h2>
+
+              <p className="mt-2 text-sm text-slate-500">
+                An overview of how your travel budget can be allocated.
+              </p>
+
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8">
+
+              <BudgetRow
+                label="Accommodation"
+                amount={result.budget * 0.35}
+                total={result.budget}
+              />
+
+              <BudgetRow
+                label="Transportation"
+                amount={result.budget * 0.15}
+                total={result.budget}
+              />
+
+              <BudgetRow
+                label="Food"
+                amount={result.budget * 0.2}
+                total={result.budget}
+              />
+
+              <BudgetRow
+                label="Activities"
+                amount={result.budget * 0.2}
+                total={result.budget}
+              />
+
+              <BudgetRow
+                label="Miscellaneous"
+                amount={result.budget * 0.1}
+                total={result.budget}
+              />
+
+              <div className="mt-6 border-t border-white/10 pt-6">
+
+                <div className="flex items-center justify-between">
+
+                  <span className="font-semibold">
+                    Total Budget
+                  </span>
+
+                  <span className="text-2xl font-bold text-emerald-400">
+                    ${result.budget.toFixed(2)}
+                  </span>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </section>
+
+          {/* Bottom CTA */}
+
+          <section className="mt-14 rounded-3xl border border-white/10 bg-gradient-to-r from-blue-500/10 to-purple-500/10 p-8 text-center">
+
+            <div className="text-4xl">
+              ✈️
+            </div>
+
+            <h2 className="mt-4 text-2xl font-bold">
+              Ready for your adventure?
+            </h2>
+
+            <p className="mt-2 text-sm text-slate-500">
+              Create another personalized trip with Kelana AI.
+            </p>
+
+            <button
+              onClick={createNewTrip}
+              className="mt-6 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 font-semibold transition hover:scale-[1.02]"
+            >
+              Create New Trip
+            </button>
+
+          </section>
 
         </div>
+
+        {/* Footer */}
+
+        <footer className="border-t border-white/10">
+
+          <div className="mx-auto max-w-6xl px-5 py-8 text-center">
+
+            <p className="text-sm font-semibold">
+              ✈️ Kelana
+              <span className="text-blue-400">
+                AI
+              </span>
+            </p>
+
+            <p className="mt-2 text-xs text-slate-600">
+              Smart Plan - Epic Trips
+            </p>
+
+            <p className="mt-4 text-xs text-slate-700">
+              © 2026 Kelana AI. All rights reserved.
+            </p>
+
+          </div>
+
+        </footer>
+
       </main>
     );
   }
 
   /*
-   * ============================
-   * FORM PAGE
-   * ============================
+   * ==========================================
+   * HOMEPAGE / FORM
+   * ==========================================
    */
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
 
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-blue-600/20 blur-3xl" />
-        <div className="absolute -bottom-20 -right-20 h-72 w-72 rounded-full bg-purple-600/20 blur-3xl" />
-      </div>
+      {/* NAVBAR */}
 
-      <div className="relative flex min-h-screen items-center justify-center px-4 py-10">
+      <nav className="border-b border-white/10">
 
-        <div className="w-full max-w-2xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
 
-          {/* Header */}
-          <div className="mb-8 text-center">
+          <div className="flex items-center gap-2">
 
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
-              ✈️ AI Travel Planner
-            </div>
+            <span className="text-2xl">
+              ✈️
+            </span>
 
-            <h1 className="text-5xl font-bold tracking-tight sm:text-6xl">
-              <span className="bg-gradient-to-r from-blue-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent">
-                Kelana AI
+            <span className="text-xl font-bold">
+              Kelana
+              <span className="text-blue-400">
+                AI
               </span>
-            </h1>
-
-            <p className="mt-4 text-lg font-medium text-slate-300">
-              Smart Plan - Epic Trips
-            </p>
-
-            <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-500">
-              Plan your perfect trip with AI. Tell us where you want to go,
-              your budget, travel month, and travel style.
-            </p>
+            </span>
 
           </div>
 
-          {/* Form Card */}
-          <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-6 shadow-2xl backdrop-blur-xl sm:p-8">
+          <div className="hidden gap-8 text-sm text-slate-500 sm:flex">
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <a
+              href="#home"
+              className="transition hover:text-white"
+            >
+              Home
+            </a>
 
-              {/* Destination */}
+            <a
+              href="#planner"
+              className="transition hover:text-white"
+            >
+              Planner
+            </a>
+
+            <a
+              href="#about"
+              className="transition hover:text-white"
+            >
+              About
+            </a>
+
+          </div>
+
+        </div>
+
+      </nav>
+
+      {/* HERO */}
+
+      <section
+        id="home"
+        className="mx-auto max-w-6xl px-5 pt-6"
+      >
+
+        <div className="relative overflow-hidden rounded-3xl">
+
+          <img
+            
+            src="https://plus.unsplash.com/premium_photo-1764411368622-1562aa5b59ad?q=80&w=1074&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+            alt="Simple Banner Hero Traveling"
+
+            className="h-[420px] w-full object-cover sm:h-[520px]"
+          />
+
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent" />
+
+          <div className="absolute inset-x-0 bottom-0 p-6 sm:p-12">
+
+            <div className="max-w-2xl">
+
+              <span className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs backdrop-blur">
+                ✨ AI POWERED TRAVEL PLANNER
+              </span>
+
+              <h1 className="mt-5 text-4xl font-bold leading-tight sm:text-6xl">
+                Plan Smarter.
+                <br />
+                <span className="text-blue-400">
+                  Travel Better.
+                </span>
+              </h1>
+
+              <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300 sm:text-base">
+                Create a personalized travel plan based on
+                your destination, budget, travel style, and
+                travel season.
+              </p>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* PLANNER */}
+
+      <section
+        id="planner"
+        className="mx-auto max-w-4xl px-5 py-16 sm:py-20"
+      >
+
+        <div className="mb-8 text-center">
+
+          <p className="text-sm font-semibold uppercase tracking-widest text-blue-400">
+            AI Travel Planner
+          </p>
+
+          <h2 className="mt-2 text-3xl font-bold sm:text-4xl">
+            Plan Your Next Adventure
+          </h2>
+
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-500">
+            Tell Kelana AI about your trip and let AI
+            create a personalized travel plan.
+          </p>
+
+        </div>
+
+        {/* FORM */}
+
+        <div className="rounded-3xl border border-white/10 bg-white/[0.05] p-5 shadow-2xl backdrop-blur-xl sm:p-8">
+
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-6"
+          >
+
+            {/* DESTINATION */}
+
+            <div>
+
+              <label className="mb-2 block text-sm font-medium">
+                Destination
+              </label>
+
+              <input
+                type="text"
+                value={destination}
+                onChange={(e) =>
+                  setDestination(e.target.value)
+                }
+                placeholder="e.g. Bali, Indonesia"
+                required
+                className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3.5 outline-none transition placeholder:text-slate-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+              />
+
+            </div>
+
+            {/* BUDGET / DAYS */}
+
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-200">
-                  Destination
+
+                <label className="mb-2 block text-sm font-medium">
+                  Budget
                 </label>
 
                 <div className="relative">
 
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2">
-                    📍
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
+                    $
                   </span>
 
                   <input
-                    type="text"
-                    value={destination}
-                    onChange={(e) => setDestination(e.target.value)}
-                    placeholder="e.g. Bali, Indonesia"
+                    type="number"
+                    min="1"
+                    value={budget}
+                    onChange={(e) =>
+                      setBudget(e.target.value)
+                    }
+                    placeholder="2000"
                     required
-                    className="w-full rounded-xl border border-white/10 bg-slate-900/70 py-3.5 pl-12 pr-4 text-white outline-none placeholder:text-slate-500 focus:border-blue-500"
+                    className="w-full rounded-xl border border-white/10 bg-slate-900 py-3.5 pl-9 pr-4 outline-none transition placeholder:text-slate-600 focus:border-blue-500"
                   />
 
                 </div>
-              </div>
-
-              {/* Budget + Days */}
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">
-                    Budget
-                  </label>
-
-                  <div className="relative">
-
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                      $
-                    </span>
-
-                    <input
-                      type="number"
-                      min="1"
-                      value={budget}
-                      onChange={(e) => setBudget(e.target.value)}
-                      placeholder="2000"
-                      required
-                      className="w-full rounded-xl border border-white/10 bg-slate-900/70 py-3.5 pl-10 pr-4 text-white outline-none placeholder:text-slate-500 focus:border-blue-500"
-                    />
-
-                  </div>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">
-                    Duration
-                  </label>
-
-                  <div className="relative">
-
-                    <input
-                      type="number"
-                      min="1"
-                      value={days}
-                      onChange={(e) => setDays(e.target.value)}
-                      placeholder="7"
-                      required
-                      className="w-full rounded-xl border border-white/10 bg-slate-900/70 px-4 py-3.5 pr-16 text-white outline-none placeholder:text-slate-500 focus:border-blue-500"
-                    />
-
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">
-                      days
-                    </span>
-
-                  </div>
-                </div>
 
               </div>
 
-              {/* Month */}
               <div>
 
-                <label className="mb-2 block text-sm font-medium text-slate-200">
-                  Travel Month
+                <label className="mb-2 block text-sm font-medium">
+                  Duration
                 </label>
 
-                <select
-                  value={month}
-                  onChange={(e) => setMonth(e.target.value)}
-                  required
-                  className="w-full rounded-xl border border-white/10 bg-slate-900/70 px-4 py-3.5 text-white outline-none focus:border-blue-500"
-                >
+                <div className="relative">
 
-                  <option value="" disabled>
-                    Select travel month
-                  </option>
+                  <input
+                    type="number"
+                    min="1"
+                    value={days}
+                    onChange={(e) =>
+                      setDays(e.target.value)
+                    }
+                    placeholder="5"
+                    required
+                    className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3.5 pr-16 outline-none transition placeholder:text-slate-600 focus:border-blue-500"
+                  />
 
-                  <option value="January">January</option>
-                  <option value="February">February</option>
-                  <option value="March">March</option>
-                  <option value="April">April</option>
-                  <option value="May">May</option>
-                  <option value="June">June</option>
-                  <option value="July">July</option>
-                  <option value="August">August</option>
-                  <option value="September">September</option>
-                  <option value="October">October</option>
-                  <option value="November">November</option>
-                  <option value="December">December</option>
-
-                </select>
-
-              </div>
-
-              {/* Travel Style */}
-              <div>
-
-                <label className="mb-2 block text-sm font-medium text-slate-200">
-                  Travel Style
-                </label>
-
-                <select
-                  value={travelStyle}
-                  onChange={(e) => setTravelStyle(e.target.value)}
-                  required
-                  className="w-full rounded-xl border border-white/10 bg-slate-900/70 px-4 py-3.5 text-white outline-none focus:border-blue-500"
-                >
-
-                  <option value="" disabled>
-                    Select your travel style
-                  </option>
-
-                  <option value="Budget">Budget</option>
-                  <option value="Standard">Standard</option>
-                  <option value="Luxury">Luxury</option>
-                  <option value="Adventure">Adventure</option>
-                  <option value="Family">Family</option>
-                  <option value="Romantic">Romantic</option>
-                  <option value="Solo">Solo</option>
-
-                </select>
-
-              </div>
-
-              {/* Error */}
-              {error && (
-                <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
-                  {error}
-                </div>
-              )}
-
-              {/* Submit */}
-              <button
-                type="submit"
-                className="group w-full rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-4 font-semibold text-white shadow-lg shadow-blue-500/20 transition hover:scale-[1.01] hover:from-blue-400 hover:to-purple-500 active:scale-[0.99]"
-              >
-                <span className="flex items-center justify-center gap-2">
-                  Generate AI Trip
-
-                  <span className="transition-transform duration-200 group-hover:translate-x-1">
-                    →
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-600">
+                    days
                   </span>
-                </span>
-              </button>
 
-            </form>
+                </div>
 
-            <div className="mt-6 text-center text-xs text-slate-500">
-              ✨ Powered by AI
+              </div>
+
             </div>
+
+            {/* MONTH */}
+
+            <div>
+
+              <label className="mb-2 block text-sm font-medium">
+                Travel Month
+              </label>
+
+              <select
+                value={month}
+                onChange={(e) =>
+                  setMonth(e.target.value)
+                }
+                required
+                className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3.5 outline-none focus:border-blue-500"
+              >
+
+                <option value="" disabled>
+                  Select travel month
+                </option>
+
+                {[
+                  "January",
+                  "February",
+                  "March",
+                  "April",
+                  "May",
+                  "June",
+                  "July",
+                  "August",
+                  "September",
+                  "October",
+                  "November",
+                  "December",
+                ].map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+
+              </select>
+
+            </div>
+
+            {/* TRAVEL STYLE */}
+
+            <div>
+
+              <label className="mb-2 block text-sm font-medium">
+                Travel Style
+              </label>
+
+              <select
+                value={travelStyle}
+                onChange={(e) =>
+                  setTravelStyle(e.target.value)
+                }
+                required
+                className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3.5 outline-none focus:border-blue-500"
+              >
+
+                <option value="" disabled>
+                  Select your travel style
+                </option>
+
+                <option value="Standard">
+                  Standard
+                </option>
+
+                <option value="Luxury">
+                  Luxury
+                </option>
+
+                <option value="Adventure">
+                  Adventure
+                </option>
+
+                <option value="Family">
+                  Family
+                </option>
+
+                <option value="Solo">
+                  Solo
+                </option>
+
+              </select>
+
+            </div>
+
+            {/* ERROR */}
+
+            {error && (
+              <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+                {error}
+              </div>
+            )}
+
+            {/* BUTTON */}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-4 font-semibold shadow-lg shadow-blue-500/20 transition hover:scale-[1.01] hover:from-blue-400 hover:to-purple-500 disabled:opacity-50"
+            >
+              ✨ Generate AI Trip
+            </button>
+
+          </form>
+
+        </div>
+
+      </section>
+
+      {/* ABOUT */}
+
+      <section
+        id="about"
+        className="border-t border-white/10 bg-slate-900/30"
+      >
+
+        <div className="mx-auto grid max-w-6xl gap-8 px-5 py-16 sm:grid-cols-4">
+
+          <h2 className="mt-2 text-3xl font-bold sm:text-4xl">
+            About
+          </h2>
+
+          <FeatureCard
+            icon="🧠"
+            title="AI Powered"
+            description="Generate personalized travel plans using AI."
+          />
+
+          <FeatureCard
+            icon="💰"
+            title="Budget Friendly"
+            description="Plan your journey according to your available budget."
+          />
+
+          <FeatureCard
+            icon="🌎"
+            title="Travel Your Way"
+            description="Choose a travel style that matches your personality."
+          />
+
+        </div>
+
+      </section>
+
+      {/* FOOTER */}
+
+      <footer className="border-t border-white/10">
+
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-8 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
+
+          <div>
+
+            <p className="font-semibold">
+              ✈️ Kelana
+              <span className="text-blue-400">
+                AI
+              </span>
+            </p>
+
+            <p className="mt-1 text-xs text-slate-600">
+              Plan Smarter. Travel Better.
+            </p>
 
           </div>
 
-          <p className="mt-6 text-center text-xs text-slate-600">
-            Your journey starts with a smart plan.
+          <div className="flex justify-center gap-5 text-xs text-slate-500">
+
+            <a href="#home">
+              Home
+            </a>
+
+            <a href="#planner">
+              Planner
+            </a>
+
+            <a href="#about">
+              About
+            </a>
+
+          </div>
+
+          <p className="text-xs text-slate-700">
+            © 2026 Kelana AI
           </p>
 
         </div>
-      </div>
+
+      </footer>
+
     </main>
+  );
+}
+
+/*
+ * ==========================================
+ * COMPONENTS
+ * ==========================================
+ */
+
+function SummaryCard({
+  icon,
+  label,
+  value,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5">
+
+      <div className="text-xl">
+        {icon}
+      </div>
+
+      <p className="mt-3 text-xs text-slate-600">
+        {label}
+      </p>
+
+      <p className="mt-1 truncate text-sm font-semibold">
+        {value}
+      </p>
+
+    </div>
+  );
+}
+
+function TipCard({
+  icon,
+  title,
+  description,
+}: {
+  icon: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 transition hover:bg-white/[0.07]">
+
+      <div className="text-2xl">
+        {icon}
+      </div>
+
+      <h3 className="mt-4 font-semibold">
+        {title}
+      </h3>
+
+      <p className="mt-2 text-sm leading-6 text-slate-500">
+        {description}
+      </p>
+
+    </div>
+  );
+}
+
+function FoodCard({
+  icon,
+  name,
+  description,
+}: {
+  icon: string;
+  name: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+
+      <div className="text-3xl">
+        {icon}
+      </div>
+
+      <h3 className="mt-4 font-semibold">
+        {name}
+      </h3>
+
+      <p className="mt-2 text-sm leading-6 text-slate-500">
+        {description}
+      </p>
+
+    </div>
+  );
+}
+
+function BudgetRow({
+  label,
+  amount,
+  total,
+}: {
+  label: string;
+  amount: number;
+  total: number;
+}) {
+  const percentage = (amount / total) * 100;
+
+  return (
+    <div className="mb-6">
+
+      <div className="mb-2 flex justify-between text-sm">
+
+        <span className="text-slate-400">
+          {label}
+        </span>
+
+        <span className="font-medium">
+          ${amount.toFixed(2)}
+        </span>
+
+      </div>
+
+      <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-blue-500 to-purple-500"
+          style={{
+            width: `${percentage}%`,
+          }}
+        />
+
+      </div>
+
+    </div>
+  );
+}
+
+function FeatureCard({
+  icon,
+  title,
+  description,
+}: {
+  icon: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div>
+
+      <div className="text-3xl">
+        {icon}
+      </div>
+
+      <h3 className="mt-4 font-semibold">
+        {title}
+      </h3>
+
+      <p className="mt-2 text-sm leading-6 text-slate-500">
+        {description}
+      </p>
+
+    </div>
   );
 }
