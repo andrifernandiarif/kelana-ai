@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import Link from "next/link";
 
 interface TripResult {
   destination: string;
@@ -207,7 +208,7 @@ export default function Home() {
             </h1>
 
             <p className="mt-2 text-sm text-slate-500">
-              Smart Plan - Epic Trips
+              Plan Smarter. Travel Better.
             </p>
 
           </div>
@@ -331,38 +332,6 @@ export default function Home() {
   if (result) {
     return (
       <main className="min-h-screen bg-slate-950 text-white">
-
-        {/* Header */}
-
-        <nav className="border-b border-white/10 bg-slate-950">
-
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
-
-            <div className="flex items-center gap-2">
-
-              <span className="text-2xl">
-                ✈️
-              </span>
-
-              <span className="text-xl font-bold">
-                Kelana
-                <span className="text-blue-400">
-                  AI
-                </span>
-              </span>
-
-            </div>
-
-            <button
-              onClick={createNewTrip}
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/10"
-            >
-              ← New Trip
-            </button>
-
-          </div>
-
-        </nav>
 
         <div className="mx-auto max-w-6xl px-5 py-10 sm:py-14">
 
@@ -692,31 +661,6 @@ export default function Home() {
 
         </div>
 
-        {/* Footer */}
-
-        <footer className="border-t border-white/10">
-
-          <div className="mx-auto max-w-6xl px-5 py-8 text-center">
-
-            <p className="text-sm font-semibold">
-              ✈️ Kelana
-              <span className="text-blue-400">
-                AI
-              </span>
-            </p>
-
-            <p className="mt-2 text-xs text-slate-600">
-              Smart Plan - Epic Trips
-            </p>
-
-            <p className="mt-4 text-xs text-slate-700">
-              © 2026 Kelana AI. All rights reserved.
-            </p>
-
-          </div>
-
-        </footer>
-
       </main>
     );
   }
@@ -730,55 +674,6 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-950 text-white">
 
-      {/* NAVBAR */}
-
-      <nav className="border-b border-white/10">
-
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
-
-          <div className="flex items-center gap-2">
-
-            <span className="text-2xl">
-              ✈️
-            </span>
-
-            <span className="text-xl font-bold">
-              Kelana
-              <span className="text-blue-400">
-                AI
-              </span>
-            </span>
-
-          </div>
-
-          <div className="hidden gap-8 text-sm text-slate-500 sm:flex">
-
-            <a
-              href="#home"
-              className="transition hover:text-white"
-            >
-              Home
-            </a>
-
-            <a
-              href="#planner"
-              className="transition hover:text-white"
-            >
-              Planner
-            </a>
-
-            <a
-              href="#about"
-              className="transition hover:text-white"
-            >
-              About
-            </a>
-
-          </div>
-
-        </div>
-
-      </nav>
 
       {/* HERO */}
 
@@ -791,7 +686,7 @@ export default function Home() {
 
           <img
             
-            src="https://plus.unsplash.com/premium_photo-1764411368622-1562aa5b59ad?q=80&w=1074&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+            src="https://plus.unsplash.com/premium_photo-1681487612246-a171d00b5e9b?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
             alt="Simple Banner Hero Traveling"
 
             className="h-[420px] w-full object-cover sm:h-[520px]"
@@ -1010,16 +905,12 @@ export default function Home() {
                   Select your travel style
                 </option>
 
-                <option value="Standard">
-                  Standard
+                <option value="Adventure">
+                  Adventure
                 </option>
 
                 <option value="Luxury">
-                  Luxury
-                </option>
-
-                <option value="Adventure">
-                  Adventure
+                  Backpacker
                 </option>
 
                 <option value="Family">
@@ -1065,16 +956,12 @@ export default function Home() {
         className="border-t border-white/10 bg-slate-900/30"
       >
 
-        <div className="mx-auto grid max-w-6xl gap-8 px-5 py-16 sm:grid-cols-4">
+        <div className="mx-auto grid max-w-6xl gap-8 px-5 py-16 sm:grid-cols-3">
 
-          <h2 className="mt-2 text-3xl font-bold sm:text-4xl">
-            About
-          </h2>
-
-          <FeatureCard
-            icon="🧠"
-            title="AI Powered"
-            description="Generate personalized travel plans using AI."
+         <FeatureCard
+            icon="💡"
+            title="About Kelana AI"
+            description="Kelana AI is a smart travel assistant that instantly designs custom itineraries."
           />
 
           <FeatureCard
@@ -1092,51 +979,6 @@ export default function Home() {
         </div>
 
       </section>
-
-      {/* FOOTER */}
-
-      <footer className="border-t border-white/10">
-
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-8 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
-
-          <div>
-
-            <p className="font-semibold">
-              ✈️ Kelana
-              <span className="text-blue-400">
-                AI
-              </span>
-            </p>
-
-            <p className="mt-1 text-xs text-slate-600">
-              Plan Smarter. Travel Better.
-            </p>
-
-          </div>
-
-          <div className="flex justify-center gap-5 text-xs text-slate-500">
-
-            <a href="#home">
-              Home
-            </a>
-
-            <a href="#planner">
-              Planner
-            </a>
-
-            <a href="#about">
-              About
-            </a>
-
-          </div>
-
-          <p className="text-xs text-slate-700">
-            © 2026 Kelana AI
-          </p>
-
-        </div>
-
-      </footer>
 
     </main>
   );
