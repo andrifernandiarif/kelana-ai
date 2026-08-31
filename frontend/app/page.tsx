@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import Link from "next/link";
+
+import { getStoredToken } from "@/services/authService";
 
 interface TripResult {
   destination: string;
@@ -50,6 +53,8 @@ const loadingStages = [
 ];
 
 export default function Home() {
+  const router = useRouter();
+
   const [destination, setDestination] = useState("");
   const [budget, setBudget] = useState("");
   const [days, setDays] = useState("");
@@ -62,6 +67,19 @@ export default function Home() {
   const [result, setResult] = useState<TripResult | null>(null);
 
   const [error, setError] = useState("");
+
+  // Track auth state client-side to avoid hydration mismatch
+  // Also redirect to /login immediately on mount if not authenticated
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const token = getStoredToken();
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
+    setIsLoggedIn(true);
+  }, [router]);
 
   /*
    * ==========================================
@@ -94,18 +112,29 @@ export default function Home() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Guard: user must be logged in
+    const token = getStoredToken();
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+
     setLoading(true);
     setLoadingStage(0);
     setError("");
     setResult(null);
 
     try {
-      const response = await fetch(
-        "http://127.0.0.1:8000/api/v1/trips",
+      const API_URL = (
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1"
+      ).replace(/\/$/, "");
+
+      const response = await fetch(`${API_URL}/trips`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             destination: destination,
@@ -117,26 +146,27 @@ export default function Home() {
         }
       );
 
+      if (response.status === 401) {
+        // Token expired or invalid — redirect to login
+        router.push("/login");
+        return;
+      }
+
       if (!response.ok) {
         const errorData = await response.json();
-
         console.error("Backend error:", errorData);
-
-        throw new Error(
-          errorData.detail || "Failed to generate trip"
-        );
+        throw new Error(errorData.detail || "Failed to generate trip");
       }
 
       const data = await response.json();
-
       console.log("AI Trip Result:", data);
-
       setResult(data);
     } catch (error) {
       console.error(error);
-
       setError(
-        "Failed to generate your trip. Please make sure the FastAPI backend is running."
+        error instanceof Error
+          ? error.message
+          : "Failed to generate your trip. Please make sure the FastAPI backend is running."
       );
     } finally {
       setLoading(false);
@@ -930,6 +960,17 @@ export default function Home() {
             {error && (
               <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
                 {error}
+              </div>
+            )}
+
+            {/* AUTH NOTICE — tampil jika belum login */}
+            {!isLoggedIn && (
+              <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-sm text-yellow-300">
+                You need to{" "}
+                <Link href="/login" className="font-semibold underline hover:text-yellow-200">
+                  log in
+                </Link>{" "}
+                before generating a trip.
               </div>
             )}
 

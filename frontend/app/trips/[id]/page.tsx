@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
+import { getStoredToken } from "@/services/authService";
 
 interface Trip {
   id: number;
@@ -19,6 +20,7 @@ interface Trip {
 
 export default function TripDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const id = params.id;
 
   const [trip, setTrip] = useState<Trip | null>(null);
@@ -28,17 +30,32 @@ export default function TripDetailPage() {
 
   useEffect(() => {
     const fetchTrip = async () => {
+      const token = getStoredToken();
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
       try {
+        const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1").replace(/\/$/, "");
         const response = await fetch(
-          `http://127.0.0.1:8000/api/v1/trips/${id}`
+          `${API_BASE}/trips/${id}`,
+          {
+            cache: "no-store",
+            headers: { Authorization: `Bearer ${token}` },
+          }
         );
+
+        if (response.status === 401) {
+          router.push("/login");
+          return;
+        }
 
         if (!response.ok) {
           throw new Error("Failed to fetch trip");
         }
 
         const data = await response.json();
-
         setTrip(data);
       } catch (error) {
         console.error(error);
@@ -51,7 +68,7 @@ export default function TripDetailPage() {
     if (id) {
       fetchTrip();
     }
-  }, [id]);
+  }, [id, router]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
