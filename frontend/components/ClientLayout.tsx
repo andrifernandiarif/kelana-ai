@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import AskKelanaAI from "@/components/AskKelanaAI";
 
 // Pages where Header and Footer should NOT be shown
 const AUTH_PATHS = ["/login", "/register"];
@@ -20,6 +21,7 @@ export default function ClientLayout({
       {!isAuthPage && <Header />}
       <main className="flex-1">{children}</main>
       {!isAuthPage && <Footer />}
+      {!isAuthPage && <AskKelanaAI />}
     </>
   );
 }

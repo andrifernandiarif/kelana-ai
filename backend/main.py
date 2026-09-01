@@ -10,6 +10,7 @@ from services.trip_service import (
 )
 
 from services.bedrock_service import get_ai_recommendation
+from services.kb_service import ask_knowledge_base
 from services.auth_service import (
     register_user,
     authenticate_user,
@@ -29,9 +30,10 @@ import os
 load_dotenv()
 
 
-# ===========================================================================
+
 # Pydantic models
-# ===========================================================================
+class AskRequest(BaseModel):
+    question: str
 
 class TripRequest(BaseModel):
     destination:  str
@@ -53,10 +55,8 @@ class LoginRequest(BaseModel):
     password: str
 
 
-# ===========================================================================
-# App + middleware
-# ===========================================================================
 
+# App + middleware
 app = FastAPI()
 
 app.add_middleware(
@@ -70,10 +70,8 @@ app.add_middleware(
 init_db()
 
 
-# ===========================================================================
-# Auth dependency — extract & validate JWT from Authorization header
-# ===========================================================================
 
+# Auth dependency — extract & validate JWT from Authorization header
 def get_current_user(authorization: Optional[str] = Header(default=None)) -> User:
     """FastAPI dependency: decode JWT and return the authenticated User.
 
@@ -110,10 +108,8 @@ def get_current_user(authorization: Optional[str] = Header(default=None)) -> Use
     return user
 
 
-# ===========================================================================
-# Public endpoints
-# ===========================================================================
 
+# Public endpoints
 @app.get("/")
 def home():
     return {"message": "Welcome to KelanaAI"}
@@ -139,10 +135,42 @@ def transportations():
     return ["Bus", "Train", "Flight"]
 
 
-# ===========================================================================
-# Auth endpoints
-# ===========================================================================
 
+# RAG / Knowledge Base endpoint
+@app.post("/api/v1/ask")
+def ask(request: AskRequest):
+    """
+    RAG endpoint — retrieve context from the AWS Bedrock Knowledge Base
+    and generate a grounded answer for the given question.
+
+    Body:
+        question (str): The natural language question to answer.
+
+    Returns:
+        answer    (str):  AI-generated answer grounded in the Knowledge Base.
+        citations (list): Source references used to produce the answer.
+    """
+    if not request.question or not request.question.strip():
+        raise HTTPException(status_code=400, detail="'question' must not be empty.")
+
+    try:
+        result = ask_knowledge_base(question=request.question.strip())
+        return {
+            "question": request.question.strip(),
+            "answer": result["answer"],
+            "citations": result["citations"],
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to query Knowledge Base: {str(e)}",
+        )
+
+
+
+# Auth endpoints
 @app.post("/api/v1/auth/register")
 def register(request: RegisterRequest):
     db = SessionLocal()
@@ -200,10 +228,8 @@ def logout(authorization: Optional[str] = Header(default=None)):
     return {"message": "Logout successful"}
 
 
-# ===========================================================================
-# Trip endpoints (protected)
-# ===========================================================================
 
+# Trip endpoints (protected)
 @app.get("/api/v1/trips")
 def list_trips(current_user: User = Depends(get_current_user)):
     """Return only the trips that belong to the authenticated user."""
