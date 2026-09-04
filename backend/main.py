@@ -18,10 +18,18 @@ from services.auth_service import (
     decode_access_token,
     get_user_by_id,
 )
+from services.conversation_service import (
+    create_conversation as svc_create_conversation,
+    list_conversations as svc_list_conversations,
+    get_conversation as svc_get_conversation,
+    get_messages as svc_get_messages,
+    send_message as svc_send_message,
+)
 
 from database import SessionLocal, init_db
 from models.trip import Trip
 from models.user import User
+from models.conversation import Conversation, Message
 
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -53,6 +61,12 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email:    str
     password: str
+
+class ConversationCreateRequest(BaseModel):
+    title: Optional[str] = "New Conversation"
+
+class MessageRequest(BaseModel):
+    content: str
 
 
 
@@ -399,5 +413,238 @@ def delete_trip(
         db.delete(trip)
         db.commit()
         return {"message": f"Trip {trip_id} successfully deleted."}
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------------------
+# Conversation endpoints (protected)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/v1/conversations", status_code=201)
+def create_conversation(
+    request: ConversationCreateRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    POST /api/v1/conversations
+
+    Create a new conversation row for the authenticated user and return
+    its identifier.
+
+    Response 201:
+        {"conversation_id": 1}
+    """
+    db = SessionLocal()
+    try:
+        conversation = svc_create_conversation(
+            db=db,
+            user_id=current_user.id,
+            title=request.title or "New Conversation",
+        )
+        return {"conversation_id": conversation.id}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create conversation: {str(e)}")
+    finally:
+        db.close()
+
+
+@app.get("/api/v1/conversations")
+def list_conversations(current_user: User = Depends(get_current_user)):
+    """
+    GET /api/v1/conversations
+
+    List previous conversations for the authenticated user, newest first.
+
+    Response:
+        [
+            {"id": 1, "title": "Japan Family Trip", "created_at": "2025-07-01T09:10:00Z"},
+            ...
+        ]
+    """
+    db = SessionLocal()
+    try:
+        conversations = svc_list_conversations(db=db, user_id=current_user.id)
+        return [
+            {
+                "id": c.id,
+                "title": c.title,
+                "created_at": c.created_at.strftime("%Y-%m-%d %H:%M"),
+            }
+            for c in conversations
+        ]
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------------------
+# Message endpoint (protected)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/v1/conversations/{conversation_id}/messages", status_code=201)
+def send_message(
+    conversation_id: int,
+    request: MessageRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    POST /api/v1/conversations/{conversation_id}/messages
+
+    Send a user message and get an AI reply.
+
+    Orchestration (all happens in the backend):
+      1. Verify the conversation belongs to the authenticated user.
+      2. Load full message history.
+      3. Persist the user message.
+      4. Build a context-aware prompt from the complete thread.
+      5. Call Amazon Bedrock (Nova) via Converse API.
+      6. Persist and return the assistant reply.
+
+    Response 201:
+        {
+            "message_id": 42,
+            "role": "assistant",
+            "content": "Here is a 5-day itinerary for Japan…",
+            "created_at": "2025-07-01T09:12:00Z"
+        }
+    """
+    if not request.content or not request.content.strip():
+        raise HTTPException(status_code=400, detail="'content' must not be empty.")
+
+    db = SessionLocal()
+    try:
+        # Verify ownership
+        conversation = svc_get_conversation(
+            db=db,
+            conversation_id=conversation_id,
+            user_id=current_user.id,
+        )
+        if conversation is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Conversation {conversation_id} not found.",
+            )
+
+        # Orchestrate: persist user message → build prompt → call LLM → persist reply
+        assistant_msg = svc_send_message(
+            db=db,
+            conversation_id=conversation_id,
+            user_content=request.content.strip(),
+        )
+
+        return {
+            "message_id": assistant_msg.id,
+            "role": assistant_msg.role,
+            "content": assistant_msg.content,
+            "created_at": assistant_msg.created_at.isoformat(),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to send message: {str(e)}",
+        )
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------------------
+# Rename conversation endpoint (protected)
+# ---------------------------------------------------------------------------
+
+class ConversationRenameRequest(BaseModel):
+    title: str
+
+@app.patch("/api/v1/conversations/{conversation_id}")
+def rename_conversation(
+    conversation_id: int,
+    request: ConversationRenameRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    PATCH /api/v1/conversations/{conversation_id}
+
+    Rename a conversation title.
+
+    Body:  {"title": "Japan Family Trip"}
+    Response: {"id": 1, "title": "Japan Family Trip"}
+    """
+    if not request.title or not request.title.strip():
+        raise HTTPException(status_code=400, detail="'title' must not be empty.")
+
+    db = SessionLocal()
+    try:
+        conversation = svc_get_conversation(
+            db=db,
+            conversation_id=conversation_id,
+            user_id=current_user.id,
+        )
+        if conversation is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Conversation {conversation_id} not found.",
+            )
+        conversation.title = request.title.strip()[:256]
+        db.commit()
+        db.refresh(conversation)
+        return {"id": conversation.id, "title": conversation.title}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to rename conversation: {str(e)}")
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------------------
+# Get messages for a conversation (protected)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v1/conversations/{conversation_id}/messages")
+def get_conversation_messages(
+    conversation_id: int,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    GET /api/v1/conversations/{conversation_id}/messages
+
+    Return all messages for a conversation ordered by created_at ASC.
+
+    Response:
+        [
+            {"id": 1, "role": "user",      "content": "...", "created_at": "..."},
+            {"id": 2, "role": "assistant", "content": "...", "created_at": "..."},
+        ]
+    """
+    db = SessionLocal()
+    try:
+        conversation = svc_get_conversation(
+            db=db,
+            conversation_id=conversation_id,
+            user_id=current_user.id,
+        )
+        if conversation is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Conversation {conversation_id} not found.",
+            )
+        messages = svc_get_messages(db=db, conversation_id=conversation_id)
+        return [
+            {
+                "id": m.id,
+                "role": m.role,
+                "content": m.content,
+                "created_at": m.created_at.isoformat(),
+            }
+            for m in messages
+        ]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to load messages: {str(e)}")
     finally:
         db.close()

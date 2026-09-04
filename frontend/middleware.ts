@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
  * We rely on a cookie "kelana_token" that is written alongside localStorage
  * by saveSession() in authService.ts.
  */
-const PROTECTED_PREFIXES = ["/trips", "/profile"];
+const PROTECTED_PREFIXES = ["/trips", "/profile", "/chat"];
 
 /**
  * Auth routes — if a logged-in user visits these, redirect to home.

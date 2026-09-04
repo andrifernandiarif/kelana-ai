@@ -30,9 +30,8 @@ function getAuthHeaders(): HeadersInit {
   }
 
   const token = localStorage.getItem("kelana_token")
-  const tokenType = localStorage.getItem("kelana_token_type") || "bearer"
-
-  return token ? { Authorization: `${tokenType} ${token}` } : {}
+  // Normalize to "Bearer" (capital B) — backend requires "Bearer <token>"
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 export async function getTrips(): Promise<Trip[]> {

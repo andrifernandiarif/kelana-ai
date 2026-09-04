@@ -103,7 +103,7 @@ export default function Navbar() {
 
                 <Link
                   href="/trips"
-                  className="rounded-xl bg-blue-600 px-5 py-2.5 font-semibold text-white transition hover:bg-blue-700"
+                  className="rounded-xl px-5 py-2.5 font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white"
                 >
                   My Trips
                 </Link>
@@ -188,7 +188,7 @@ export default function Navbar() {
                   <Link href="/#planner" onClick={closeMenu} className="rounded-xl px-4 py-3 font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white">
                     Planner
                   </Link>
-                  <Link href="/trips" onClick={closeMenu} className="mt-1 rounded-xl bg-blue-600 px-4 py-3 text-center font-semibold text-white transition hover:bg-blue-700">
+                  <Link href="/trips" onClick={closeMenu} className="rounded-xl px-4 py-3 font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white">
                     My Trips
                   </Link>
                 </>
