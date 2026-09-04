@@ -12,44 +12,88 @@ import {
   getMessages,
   sendMessage,
   renameConversation,
+  deleteConversation,
   type Conversation,
   type Message,
 } from "@/services/conversationService";
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Format an ISO timestamp or a pre-formatted string into a short, readable
+ * time label for message bubbles.
+ *
+ * Examples:
+ *   "2025-07-01T09:12:00Z"  → "09:12"          (today)
+ *   "2025-07-01T09:12:00Z"  → "Jul 1, 09:12"   (different day)
+ *   undefined               → ""               (optimistic message, no ts yet)
+ */
+function formatTimestamp(ts: string | undefined): string {
+  if (!ts) return "";
+
+  // The backend may return a pre-formatted string like "2025-07-01 09:12"
+  // or a full ISO string. Try parsing both.
+  const date = new Date(ts);
+  if (isNaN(date.getTime())) return ts; // not parseable — return as-is
+
+  const now   = new Date();
+  const isToday =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth()    === now.getMonth()    &&
+    date.getDate()     === now.getDate();
+
+  const timeStr = date.toLocaleTimeString("id-ID", {
+    hour:   "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  if (isToday) return timeStr;
+
+  const dateStr = date.toLocaleDateString("id-ID", {
+    month: "short",
+    day:   "numeric",
+  });
+  return `${dateStr}, ${timeStr}`;
+}
+
+// ---------------------------------------------------------------------------
 // Chat Page
-//
-// Features:
-//   • Conversation sidebar — list, select, auto-load messages, new button
-//   • Load previous messages when clicking a past conversation
-//   • Inline rename — double-click or pencil icon on any conversation
-//   • Message bubbles + typing indicator + auto-scroll
-//   • Footer at the bottom
 // ---------------------------------------------------------------------------
 
 export default function ChatPage() {
   const router = useRouter();
 
   // ── Sidebar ───────────────────────────────────────────────────────────────
-  const [conversations, setConversations]   = useState<Conversation[]>([]);
-  const [activeConvId, setActiveConvId]     = useState<number | null>(null);
-  const [sidebarOpen, setSidebarOpen]       = useState(false);
+  const [conversations, setConversations]     = useState<Conversation[]>([]);
+  const [activeConvId, setActiveConvId]       = useState<number | null>(null);
+  const [sidebarOpen, setSidebarOpen]         = useState(false);
 
-  // ── Rename state ──────────────────────────────────────────────────────────
-  const [renamingId, setRenamingId]         = useState<number | null>(null);
-  const [renameValue, setRenameValue]       = useState("");
-  const renameInputRef                      = useRef<HTMLInputElement>(null);
+  // ── Rename ────────────────────────────────────────────────────────────────
+  const [renamingId, setRenamingId]           = useState<number | null>(null);
+  const [renameValue, setRenameValue]         = useState("");
+  const renameInputRef                        = useRef<HTMLInputElement>(null);
+
+  // ── Delete confirm ────────────────────────────────────────────────────────
+  // Holds the id of the conversation pending deletion confirmation.
+  // null = no pending delete, number = showing confirm prompt for that id.
+  const [deletingId, setDeletingId]           = useState<number | null>(null);
 
   // ── Chat ──────────────────────────────────────────────────────────────────
-  const [messages, setMessages]             = useState<Message[]>([]);
+  const [messages, setMessages]               = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
-  const [input, setInput]                   = useState("");
-  const [sending, setSending]               = useState(false);
-  const [error, setError]                   = useState("");
+  const [input, setInput]                     = useState("");
+  const [sending, setSending]                 = useState(false);
+  const [error, setError]                     = useState("");
+
+  // Track whether the latest scroll should be instant (first load) or smooth
+  const scrollBehavior = useRef<ScrollBehavior>("instant");
 
   // ── Refs ──────────────────────────────────────────────────────────────────
-  const bottomRef  = useRef<HTMLDivElement>(null);
-  const inputRef   = useRef<HTMLTextAreaElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef  = useRef<HTMLTextAreaElement>(null);
 
   // ── Auth guard ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -67,11 +111,13 @@ export default function ChatPage() {
   useEffect(() => { refreshConversations(); }, [refreshConversations]);
 
   // ── Auto-scroll ───────────────────────────────────────────────────────────
+  // Runs whenever the message list changes or the typing indicator appears.
+  // scrollBehavior.current controls "instant" (first load) vs "smooth" (new msg).
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({ behavior: scrollBehavior.current });
   }, [messages, sending]);
 
-  // ── Focus rename input when entering rename mode ──────────────────────────
+  // ── Focus rename input ────────────────────────────────────────────────────
   useEffect(() => {
     if (renamingId !== null) {
       setTimeout(() => {
@@ -81,7 +127,7 @@ export default function ChatPage() {
     }
   }, [renamingId]);
 
-  // ── Select a conversation and load its messages ───────────────────────────
+  // ── Select conversation — load messages ───────────────────────────────────
   const handleSelectConversation = useCallback(async (conv: Conversation) => {
     if (conv.id === activeConvId) { setSidebarOpen(false); return; }
 
@@ -90,6 +136,8 @@ export default function ChatPage() {
     setError("");
     setSidebarOpen(false);
     setLoadingMessages(true);
+    // First load of a conversation → jump instantly to the bottom
+    scrollBehavior.current = "instant";
 
     try {
       const msgs = await getMessages(conv.id);
@@ -108,8 +156,11 @@ export default function ChatPage() {
       const id = await createConversation();
       const newConv: Conversation = {
         id,
-        title: "New Conversation",
-        created_at: new Date().toLocaleString("id-ID", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }),
+        title: "New Chat",
+        created_at: new Date().toLocaleString("id-ID", {
+          year: "numeric", month: "2-digit", day: "2-digit",
+          hour: "2-digit", minute: "2-digit",
+        }),
       };
       setConversations((prev) => [newConv, ...prev]);
       setActiveConvId(id);
@@ -135,8 +186,11 @@ export default function ChatPage() {
         convId = await createConversation();
         const newConv: Conversation = {
           id: convId,
-          title: "New Conversation",
-          created_at: new Date().toLocaleString("id-ID", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }),
+          title: "New Chat",
+          created_at: new Date().toLocaleString("id-ID", {
+            year: "numeric", month: "2-digit", day: "2-digit",
+            hour: "2-digit", minute: "2-digit",
+          }),
         };
         setConversations((prev) => [newConv, ...prev]);
         setActiveConvId(convId);
@@ -146,7 +200,15 @@ export default function ChatPage() {
       }
     }
 
-    const userMsg: Message = { role: "user", content: text };
+    // New messages → smooth scroll
+    scrollBehavior.current = "smooth";
+
+    // Optimistic user bubble — no timestamp yet (will be set on assistant reply)
+    const userMsg: Message = {
+      role: "user",
+      content: text,
+      created_at: new Date().toISOString(),
+    };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setSending(true);
@@ -154,9 +216,9 @@ export default function ChatPage() {
     try {
       const reply = await sendMessage(convId, text);
       const assistantMsg: Message = {
-        id: reply.message_id,
-        role: "assistant",
-        content: reply.content,
+        id:         reply.message_id,
+        role:       "assistant",
+        content:    reply.content,
         created_at: reply.created_at,
       };
       setMessages((prev) => [...prev, assistantMsg]);
@@ -173,7 +235,7 @@ export default function ChatPage() {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  // ── Rename helpers ────────────────────────────────────────────────────────
+  // ── Rename ────────────────────────────────────────────────────────────────
   const startRename = (conv: Conversation, e: React.MouseEvent) => {
     e.stopPropagation();
     setRenamingId(conv.id);
@@ -184,17 +246,13 @@ export default function ChatPage() {
     if (renamingId === null) return;
     const trimmed = renameValue.trim();
     if (!trimmed) { setRenamingId(null); return; }
-
     try {
       await renameConversation(renamingId, trimmed);
       setConversations((prev) =>
         prev.map((c) => c.id === renamingId ? { ...c, title: trimmed } : c)
       );
-    } catch {
-      // revert silently — original title stays
-    } finally {
-      setRenamingId(null);
-    }
+    } catch { /* revert silently */ }
+    finally { setRenamingId(null); }
   };
 
   const handleRenameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -202,16 +260,33 @@ export default function ChatPage() {
     if (e.key === "Escape") { setRenamingId(null); }
   };
 
-  // ── Active conversation metadata ──────────────────────────────────────────
-  const activeConv = conversations.find((c) => c.id === activeConvId);
+  // ── Delete ────────────────────────────────────────────────────────────────
+  const handleDelete = async (convId: number) => {
+    try {
+      await deleteConversation(convId);
+      setConversations((prev) => prev.filter((c) => c.id !== convId));
+      // If we deleted the active conversation, clear the chat panel
+      if (activeConvId === convId) {
+        setActiveConvId(null);
+        setMessages([]);
+      }
+    } catch {
+      setError("Could not delete conversation. Please try again.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // ── Derived ───────────────────────────────────────────────────────────────
+  const activeConv    = conversations.find((c) => c.id === activeConvId);
+  const messageCount  = messages.length;
 
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
   return (
-    <div className="flex flex-col bg-slate-950 text-white" style={{ minHeight: "calc(100vh - 0px)" }}>
+    <div className="flex flex-col bg-slate-950 text-white" style={{ minHeight: "100vh" }}>
 
-      {/* ── main area (sidebar + chat) fills remaining viewport ── */}
       <div className="flex flex-1 overflow-hidden" style={{ height: "calc(100vh - 56px)" }}>
 
         {/* Mobile backdrop */}
@@ -226,10 +301,9 @@ export default function ChatPage() {
           className={`
             fixed inset-y-0 left-0 z-30 flex w-72 flex-col border-r border-white/10
             bg-slate-900 transition-transform duration-300
-            lg:relative lg:translate-x-0 lg:z-auto lg:top-0
+            lg:relative lg:translate-x-0 lg:z-auto
             ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
           `}
-          style={{ top: "0" }}
         >
           {/* Sidebar header */}
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
@@ -263,7 +337,6 @@ export default function ChatPage() {
               conversations.map((conv) => (
                 <div key={conv.id} className="group relative">
                   {renamingId === conv.id ? (
-                    /* ── Inline rename input ── */
                     <div className="flex items-center gap-1 rounded-xl bg-blue-600/20 px-3 py-2">
                       <input
                         ref={renameInputRef}
@@ -285,15 +358,33 @@ export default function ChatPage() {
                         </svg>
                       </button>
                     </div>
+                  ) : deletingId === conv.id ? (
+                    /* ── Inline delete confirm ── */
+                    <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5">
+                      <p className="min-w-0 flex-1 truncate text-xs text-red-300">
+                        Delete &ldquo;{conv.title}&rdquo;?
+                      </p>
+                      <button
+                        onClick={() => handleDelete(conv.id)}
+                        className="flex-shrink-0 rounded-lg bg-red-600 px-2 py-1 text-xs font-semibold text-white transition hover:bg-red-500"
+                      >
+                        Delete
+                      </button>
+                      <button
+                        onClick={() => setDeletingId(null)}
+                        className="flex-shrink-0 rounded-lg border border-white/10 px-2 py-1 text-xs text-slate-400 transition hover:text-white"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   ) : (
-                    /* ── Normal conversation row ── */
                     <div
                       onClick={() => handleSelectConversation(conv)}
                       role="button"
                       tabIndex={0}
                       onKeyDown={(e) => e.key === "Enter" && handleSelectConversation(conv)}
                       className={`
-                        flex w-full cursor-pointer items-center rounded-xl px-3 py-2.5 text-left transition
+                        flex w-full cursor-pointer items-center rounded-xl px-3 py-2.5 transition
                         ${conv.id === activeConvId
                           ? "bg-blue-600/20 text-white"
                           : "text-slate-400 hover:bg-white/5 hover:text-white"
@@ -310,13 +401,11 @@ export default function ChatPage() {
                         <p className="truncate text-sm font-medium leading-snug">{conv.title}</p>
                         <p className="mt-0.5 text-xs text-slate-600">{conv.created_at}</p>
                       </div>
-                      {/* Pencil icon — separate clickable element, not nested inside a button */}
                       <button
                         onClick={(e) => startRename(conv, e)}
                         title="Rename"
                         className={`
-                          ml-1 flex-shrink-0 rounded p-1 transition
-                          text-slate-600 hover:text-white
+                          ml-1 flex-shrink-0 rounded p-1 transition text-slate-600 hover:text-white
                           opacity-0 group-hover:opacity-100
                           ${conv.id === activeConvId ? "opacity-100" : ""}
                         `}
@@ -325,6 +414,22 @@ export default function ChatPage() {
                           stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5">
                           <path strokeLinecap="round" strokeLinejoin="round"
                             d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                        </svg>
+                      </button>
+                      {/* Trash icon — triggers inline confirm */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setDeletingId(conv.id); }}
+                        title="Delete"
+                        className={`
+                          flex-shrink-0 rounded p-1 transition text-slate-600 hover:text-red-400
+                          opacity-0 group-hover:opacity-100
+                          ${conv.id === activeConvId ? "opacity-100" : ""}
+                        `}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                          stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5">
+                          <path strokeLinecap="round" strokeLinejoin="round"
+                            d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                         </svg>
                       </button>
                     </div>
@@ -340,8 +445,9 @@ export default function ChatPage() {
             ============================================================== */}
         <div className="flex flex-1 flex-col min-w-0">
 
-          {/* Chat header */}
+          {/* ── Chat header — Feature 1: Conversation title ── */}
           <div className="flex flex-shrink-0 items-center gap-3 border-b border-white/10 bg-slate-900/80 px-4 py-3 backdrop-blur">
+            {/* Mobile hamburger */}
             <button
               onClick={() => setSidebarOpen(true)}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/10 hover:text-white lg:hidden"
@@ -352,26 +458,50 @@ export default function ChatPage() {
               </svg>
             </button>
 
+            {/* Traffic-light dots */}
             <div className="hidden items-center gap-1.5 sm:flex">
               <span className="h-3 w-3 rounded-full bg-red-500" />
               <span className="h-3 w-3 rounded-full bg-yellow-400" />
               <span className="h-3 w-3 rounded-full bg-green-500" />
             </div>
 
-            <h1 className="flex-1 truncate text-sm font-semibold">
-              {activeConv ? activeConv.title : "KelanaAI Chat"}
-            </h1>
+            {/* ── Conversation title + message count ── */}
+            <div className="flex-1 min-w-0">
+              <h1 className="truncate text-sm font-semibold leading-tight">
+                {activeConv ? activeConv.title : "KelanaAI Chat"}
+              </h1>
+              {activeConv && (
+                <p className="text-xs text-slate-500 leading-tight mt-0.5">
+                  {messageCount > 0
+                    ? `${messageCount} message${messageCount !== 1 ? "s" : ""}`
+                    : "No messages yet"}
+                </p>
+              )}
+            </div>
 
-            <span className="flex items-center gap-1.5 text-xs text-slate-500">
+            {/* Online status */}
+            <span className="flex items-center gap-1.5 text-xs text-slate-500 flex-shrink-0">
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              Online
+              <span className="hidden sm:inline">Online</span>
             </span>
+
+            {/* Close button — navigates back to home */}
+            <button
+              onClick={() => router.push("/")}
+              title="Close chat"
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/10 hover:text-white"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth={2.5} className="h-4 w-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
 
-          {/* Message list */}
+          {/* ── Message list ── */}
           <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
 
-            {/* Loading messages spinner */}
+            {/* Loading spinner */}
             {loadingMessages && (
               <div className="flex items-center justify-center py-12 text-slate-500 gap-2 text-sm">
                 <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -392,32 +522,16 @@ export default function ChatPage() {
                     Ask KelanaAI to plan a trip, suggest destinations, or help
                     you build a travel itinerary.
                   </p>
-                  {/* <div className="mt-4 space-y-2">
-                    {[
-                      "Plan a family trip to Japan",
-                      "Best budget destinations in Southeast Asia",
-                      "5-day itinerary for Bali",
-                    ].map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => setInput(s)}
-                        className="block w-full rounded-xl border border-white/10 bg-white/5
-                                   px-3 py-2 text-left text-xs text-slate-400
-                                   transition hover:bg-white/10 hover:text-white"
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div> */}
                 </div>
               </div>
             )}
 
-            {/* Messages */}
+            {/* ── Message bubbles — Feature 4: timestamp on each bubble ── */}
             {!loadingMessages && messages.map((msg, idx) => (
               <MessageBubble key={idx} message={msg} />
             ))}
 
+            {/* ── Feature 3: Typing indicator ── */}
             {sending && <TypingIndicator />}
 
             {error && (
@@ -426,10 +540,11 @@ export default function ChatPage() {
               </div>
             )}
 
+            {/* ── Feature 2: Auto-scroll anchor ── */}
             <div ref={bottomRef} />
           </div>
 
-          {/* Input bar */}
+          {/* ── Input bar ── */}
           <div className="flex-shrink-0 border-t border-white/10 bg-slate-900/80 p-4 backdrop-blur">
             <div className="flex items-end gap-3 rounded-2xl border border-white/10 bg-slate-800 px-4 py-3
                             focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition">
@@ -483,13 +598,15 @@ export default function ChatPage() {
 }
 
 // ---------------------------------------------------------------------------
-// Sub-components
+// MessageBubble: timestamp
 // ---------------------------------------------------------------------------
 
 function MessageBubble({ message }: { message: Message }) {
-  const isUser = message.role === "user";
+  const isUser  = message.role === "user";
+  const ts      = formatTimestamp(message.created_at);
+
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+    <div className={`flex flex-col ${isUser ? "items-end" : "items-start"} gap-1`}>
       <div className={`
         max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-6
         ${isUser
@@ -514,18 +631,34 @@ function MessageBubble({ message }: { message: Message }) {
           </div>
         )}
       </div>
+
+      {/* Timestamp */}
+      {ts && (
+        <span className={`text-[10px] text-slate-600 px-1 ${isUser ? "text-right" : "text-left"}`}>
+          {ts}
+        </span>
+      )}
     </div>
   );
 }
 
+// ---------------------------------------------------------------------------
+// TypingIndicator: enhanced with label
+// ---------------------------------------------------------------------------
+
 function TypingIndicator() {
   return (
-    <div className="flex justify-start">
+    <div className="flex flex-col items-start gap-1">
       <div className="rounded-2xl rounded-bl-sm border border-white/10 bg-white/[0.06] px-4 py-3">
-        <div className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-slate-400 animate-bounce [animation-delay:0ms]" />
-          <span className="h-2 w-2 rounded-full bg-slate-400 animate-bounce [animation-delay:150ms]" />
-          <span className="h-2 w-2 rounded-full bg-slate-400 animate-bounce [animation-delay:300ms]" />
+        <div className="flex items-center gap-2">
+          {/* Animated dots */}
+          <div className="flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-blue-400 animate-bounce [animation-delay:0ms]" />
+            <span className="h-2 w-2 rounded-full bg-blue-400 animate-bounce [animation-delay:150ms]" />
+            <span className="h-2 w-2 rounded-full bg-blue-400 animate-bounce [animation-delay:300ms]" />
+          </div>
+          {/* Label */}
+          <span className="text-xs text-slate-500">KelanaAI is typing...</span>
         </div>
       </div>
     </div>

@@ -142,3 +142,19 @@ export async function renameConversation(
 
   return res.json()
 }
+
+// ---------------------------------------------------------------------------
+// DELETE /api/v1/conversations/{id}
+// Delete a conversation and all its messages
+// ---------------------------------------------------------------------------
+export async function deleteConversation(conversationId: number): Promise<void> {
+  const res = await fetch(`${API_URL}/conversations/${conversationId}`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.detail || "Failed to delete conversation")
+  }
+}

@@ -648,3 +648,48 @@ def get_conversation_messages(
         raise HTTPException(status_code=500, detail=f"Failed to load messages: {str(e)}")
     finally:
         db.close()
+
+
+# ---------------------------------------------------------------------------
+# Delete conversation endpoint (protected)
+# ---------------------------------------------------------------------------
+
+@app.delete("/api/v1/conversations/{conversation_id}", status_code=200)
+def delete_conversation(
+    conversation_id: int,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    DELETE /api/v1/conversations/{conversation_id}
+
+    Delete a conversation and all its messages (cascade).
+    Only the owner can delete their own conversation.
+
+    Response 200:
+        {"message": "Conversation 1 successfully deleted."}
+    """
+    db = SessionLocal()
+    try:
+        conversation = svc_get_conversation(
+            db=db,
+            conversation_id=conversation_id,
+            user_id=current_user.id,
+        )
+        if conversation is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Conversation {conversation_id} not found.",
+            )
+        db.delete(conversation)
+        db.commit()
+        return {"message": f"Conversation {conversation_id} successfully deleted."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete conversation: {str(e)}",
+        )
+    finally:
+        db.close()
