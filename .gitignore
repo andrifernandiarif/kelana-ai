@@ -3,3 +3,4 @@ backend/.venv
 backend/__pycache__/
 backend/services/__pycache__/
 backend/models/__pycache__/
+backend/.env.local
