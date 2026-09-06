@@ -587,7 +587,7 @@ def rename_conversation(
                 status_code=404,
                 detail=f"Conversation {conversation_id} not found.",
             )
-        conversation.title = request.title.strip()[:256]
+        conversation.title = request.title.strip()[:100]
         db.commit()
         db.refresh(conversation)
         return {"id": conversation.id, "title": conversation.title}

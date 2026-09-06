@@ -8,7 +8,7 @@ import AskKelanaAI from "@/components/AskKelanaAI";
 // Pages where Header should NOT be shown (login/register/chat use their own layout)
 const NO_HEADER_PATHS = ["/login", "/register", "/chat"];
 // Pages where Footer and FAB should NOT be shown
-const AUTH_PATHS = ["/login", "/register"];
+const AUTH_PATHS = ["/login", "/register", "/chat"];
 // Pages where FAB should NOT be shown (chat has its own interface)
 const NO_FAB_PATHS = ["/login", "/register", "/chat"];
 

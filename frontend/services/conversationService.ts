@@ -43,13 +43,14 @@ export type SendMessageResponse = {
 // Create a new conversation and return its id
 // ---------------------------------------------------------------------------
 export async function createConversation(title?: string): Promise<number> {
+  const safeTitle = (title ?? "New Conversation").slice(0, 100)
   const res = await fetch(`${API_URL}/conversations`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...getAuthHeaders(),
     },
-    body: JSON.stringify({ title: title ?? "New Conversation" }),
+    body: JSON.stringify({ title: safeTitle }),
   })
 
   if (!res.ok) {
@@ -126,13 +127,14 @@ export async function renameConversation(
   conversationId: number,
   title: string
 ): Promise<{ id: number; title: string }> {
+  const safeTitle = title.trim().slice(0, 100)
   const res = await fetch(`${API_URL}/conversations/${conversationId}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
       ...getAuthHeaders(),
     },
-    body: JSON.stringify({ title }),
+    body: JSON.stringify({ title: safeTitle }),
   })
 
   if (!res.ok) {

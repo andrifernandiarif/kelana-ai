@@ -41,7 +41,7 @@ import os
 
 
 # ---------------------------------------------------------------------------
-# Part 8 — Context window configuration
+# Context window configuration
 # ---------------------------------------------------------------------------
 
 # Number of recent *complete turns* (user + assistant pairs) to include in the
@@ -113,7 +113,7 @@ def _save_message(db: Session, conversation_id: int, role: str, content: str) ->
 
 
 # ---------------------------------------------------------------------------
-# Part 8 — Context window trimmer
+# Context window trimmer
 # ---------------------------------------------------------------------------
 
 def trim_history(history: list[Message], max_turns: int) -> list[Message]:
@@ -262,10 +262,10 @@ def send_message(db: Session, conversation_id: int, user_content: str) -> Messag
         content=assistant_content,
     )
 
-    # ── 7. Auto-title: use first user message (truncated to 60 chars) ─────────
+    # ── 7. Auto-title: use first user message (truncated to 100 chars) ──────────
     conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
-    if conversation and conversation.title == "New Conversation":
-        conversation.title = user_content[:60].strip()
+    if conversation and conversation.title in ("New Conversation", None, ""):
+        conversation.title = user_content[:100].strip()
         db.commit()
 
     # ── 8. Return the assistant message row ──────────────────────────────────

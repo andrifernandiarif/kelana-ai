@@ -9,7 +9,7 @@ class Conversation(Base):
 
     id         = Column(BigInteger, primary_key=True, autoincrement=True)
     user_id    = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    title      = Column(String(256), nullable=False, default="New Conversation")
+    title      = Column(String(100), nullable=True, default="New Conversation")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships
