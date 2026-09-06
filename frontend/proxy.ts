@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 const PROTECTED_PREFIXES = ["/trips", "/profile", "/chat"];
 const AUTH_PREFIXES = ["/login", "/register"];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get("kelana_token")?.value;
 
