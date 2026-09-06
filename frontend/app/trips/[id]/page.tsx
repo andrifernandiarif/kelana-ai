@@ -679,7 +679,7 @@ ${shareUrl}`;
           {/* ==============================
               MARKDOWN CONTENT
           ============================== */}
-          <article className="prose prose-blue max-w-none prose-headings:text-gray-900 prose-p:text-gray-600 prose-li:text-gray-600">
+          <article className="prose prose-blue max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-li:text-gray-700">
 
             {trip.ai_recommendation ? (
               <ReactMarkdown>
