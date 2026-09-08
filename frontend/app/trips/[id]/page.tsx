@@ -679,7 +679,7 @@ ${shareUrl}`;
           {/* ==============================
               MARKDOWN CONTENT
           ============================== */}
-          <article className="prose prose-blue max-w-none prose-headings:!text-gray-900 prose-p:!text-gray-900 prose-li:!text-gray-900">
+          <article className="ai-itinerary prose prose-blue max-w-none">
 
             {trip.ai_recommendation ? (
               <ReactMarkdown>
@@ -717,42 +717,72 @@ ${shareUrl}`;
           PRINT CSS
       ============================== */}
       <style jsx global>{`
-        @media print {
-          @page {
-            margin: 15mm;
+        .ai-itinerary,
+          .ai-itinerary * {
+            color: #374151 !important;
+            opacity: 1 !important;
+            -webkit-text-fill-color: #374151 !important;
           }
 
-          html,
-          body {
-            background: white !important;
+          .ai-itinerary h1,
+          .ai-itinerary h2,
+          .ai-itinerary h3,
+          .ai-itinerary h4,
+          .ai-itinerary strong,
+          .ai-itinerary b {
+            color: #111827 !important;
+            -webkit-text-fill-color: #111827 !important;
           }
 
-          .no-print {
-            display: none !important;
+          .ai-itinerary a {
+            color: #2563eb !important;
+            -webkit-text-fill-color: #2563eb !important;
           }
 
-          * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+          .ai-itinerary ul,
+          .ai-itinerary ol,
+          .ai-itinerary li,
+          .ai-itinerary p {
+            color: #374151 !important;
+            opacity: 1 !important;
           }
+            
+          @media print {
+            @page {
+              margin: 15mm;
+            }
 
-          article {
-            font-size: 12pt;
-            line-height: 1.6;
-          }
+            html,
+            body {
+              background: white !important;
+            }
 
-          h1,
-          h2,
-          h3 {
-            break-after: avoid;
-          }
+            .no-print {
+              display: none !important;
+            }
 
-          p,
-          li {
-            break-inside: avoid;
+            * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+
+            article {
+              font-size: 12pt;
+              line-height: 1.6;
+            }
+
+            h1,
+            h2,
+            h3 {
+              break-after: avoid;
+            }
+
+            p,
+            li {
+              break-inside: avoid;
+            }
           }
-        }
-      `}
+        `}
       </style>
 
     </main>
